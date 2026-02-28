@@ -14,7 +14,7 @@ body {
   color: #fff;
   position: relative;
   min-height: 100vh;
-  overflow-x: hidden; /* Fixes the screen shaking/scrolling issue */
+  overflow-x: hidden; /* Prevents "shaking" screen */
 }
 /* Hub Button */
 #hubBtn {
@@ -30,7 +30,7 @@ body {
   border: 1px solid #fff;
   z-index: 1000;
 }
-h1 { font-size: 2em; margin-top: 40px; }
+h1 { font-size: 2em; margin-top: 40px; margin-bottom: 5px; }
 #highscore-display { font-size: 1em; color: #ffe066; margin-bottom: 10px; font-weight: bold; }
 
 #dave {
@@ -40,13 +40,13 @@ h1 { font-size: 2em; margin-top: 40px; }
   border: 5px solid #fff;
   box-shadow: 0 0 20px #fff;
   transition: transform 0.1s;
-  user-select: none; /* Prevents highlighting on mobile */
-  -webkit-tap-highlight-color: transparent; /* Prevents blue box on mobile */
+  user-select: none; /* Prevents mobile highlighting */
+  -webkit-tap-highlight-color: transparent; /* Removes mobile blue tap box */
 }
 #dave:active { transform: scale(0.95); }
 
 #stats { margin-top: 20px; font-size: 1.1em; }
-#money { font-size: 2.2em; font-weight: bold; display: block; }
+#money-container { font-size: 2.2em; font-weight: bold; margin-bottom: 10px; }
 
 #buildings {
   margin-top: 20px;
@@ -72,7 +72,10 @@ button {
   font-weight: bold;
   cursor: pointer;
   box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  transition: background 0.2s;
 }
+button:hover { background: #ffcc00; color: #fff; }
+
 #resetButton {
   position: fixed;
   bottom: 10px;
@@ -88,16 +91,17 @@ button {
 <a href="https://davescasino.github.io/davescasino" id="hubBtn">← Back to Hub</a>
 
 <h1>Dave Coins</h1>
-<div id="highscore-display">Highscore: <span id="highscore">0</span></div>
+<div id="highscore-display">All-Time Highscore: <span id="highscore">0</span></div>
 
 <img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
 
 <div id="stats">
-  <div id="money">0</div>
+  <div id="money-container">$<span id="money">0</span></div>
   <div>Coins per Click: <span id="perClick">1</span></div>
   <div>Auto Coins/sec: <span id="autoCoins">0</span></div>
   <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
   <div>Prestige Multiplier: x<span id="prestigeMultiplier">1</span></div>
+  <div>Prestige Threshold: $<span id="prestigeThreshold">1000</span></div>
 </div>
 
 <div id="buildings"></div>
@@ -105,24 +109,25 @@ button {
 <div id="upgrades">
   <button id="clickUpgrade">Better Fingers ($10)</button>
   <button id="autoUpgrade">Auto-Clicker ($50)</button>
-  <button id="prestigeBtn">Prestige (Req: <span id="prestigeThreshold">1000</span>)</button>
+  <button id="prestigeBtn">Prestige</button>
 </div>
 
-<button id="resetButton">Reset Game</button>
+<button id="resetButton">Hard Reset Game</button>
 
 <script>
-// Initial Data
-let data = JSON.parse(localStorage.getItem('daveCoinsSave')) || {
+// Load data with defaults
+let data = JSON.parse(localStorage.getItem('daveCoinsData')) || {
   money: 0,
   highscore: 0,
   coinsPerClick: 1,
   autoCoinsPerSec: 0,
+  autoUpgradeCost: 50,
   prestigeMultiplier: 1,
   prestigeCount: 0,
   prestigeThreshold: 1000,
   buildings: {
-    farmer: { count: 0, cost: 10, unlocked: false },
-    tractor: { count: 0, cost: 100, unlocked: false },
+    farmer: { count: 0, cost: 10, baseCost: 10, unlocked: false },
+    tractor: { count: 0, cost: 100, baseCost: 100, unlocked: false },
   }
 };
 
@@ -132,25 +137,24 @@ const buildingTypes = [
 ];
 
 function save() {
-  localStorage.setItem('daveCoinsSave', JSON.stringify(data));
+  localStorage.setItem('daveCoinsData', JSON.stringify(data));
 }
 
 function updateUI() {
-  // Update Highscore
+  // Highscore logic
   if (data.money > data.highscore) data.highscore = Math.floor(data.money);
 
   document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
   document.getElementById('highscore').innerText = data.highscore.toLocaleString();
-  document.getElementById('perClick').innerText = data.coinsPerClick;
+  document.getElementById('perClick').innerText = (data.coinsPerClick * data.prestigeMultiplier).toFixed(1);
   document.getElementById('autoCoins').innerText = (getTotalAutoIncome()).toFixed(1);
   document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier;
   document.getElementById('prestigeThreshold').innerText = data.prestigeThreshold.toLocaleString();
   
-  // Update Upgrade Button Text
+  // Update Upgrade Buttons
   document.getElementById('clickUpgrade').innerText = `Better Fingers ($${Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1))})`;
-  document.getElementById('autoUpgrade').innerText = `Auto-Clicker ($${Math.round(50 * Math.pow(1.5, data.autoCoinsPerSec))})`;
+  document.getElementById('autoUpgrade').innerText = `Auto-Clicker ($${data.autoUpgradeCost})`;
   
-  // Refresh Building List (Only if a new one unlocked)
   checkUnlocks();
   renderBuildings();
 }
@@ -164,7 +168,7 @@ function getTotalAutoIncome() {
   return (data.autoCoinsPerSec + bIncome) * data.prestigeMultiplier;
 }
 
-// Click Dave
+// CLICK LOGIC
 document.getElementById('dave').addEventListener('click', (e) => {
   data.money += (data.coinsPerClick * data.prestigeMultiplier);
   spawnCoin(e.clientX, e.clientY);
@@ -179,7 +183,6 @@ function spawnCoin(x, y) {
   coin.style.top = y + 'px';
   document.body.appendChild(coin);
 
-  // Animate away from click
   const destX = x + (Math.random() - 0.5) * 200;
   const destY = y - 150;
 
@@ -189,7 +192,7 @@ function spawnCoin(x, y) {
   ], { duration: 700, easing: 'ease-out' }).onfinish = () => coin.remove();
 }
 
-// Upgrades
+// UPGRADES
 document.getElementById('clickUpgrade').onclick = () => {
   let cost = Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1));
   if (data.money >= cost) {
@@ -201,16 +204,16 @@ document.getElementById('clickUpgrade').onclick = () => {
 };
 
 document.getElementById('autoUpgrade').onclick = () => {
-  let cost = Math.round(50 * Math.pow(1.5, data.autoCoinsPerSec));
-  if (data.money >= cost) {
-    data.money -= cost;
+  if (data.money >= data.autoUpgradeCost) {
+    data.money -= data.autoUpgradeCost;
     data.autoCoinsPerSec++;
+    data.autoUpgradeCost = Math.round(data.autoUpgradeCost * 1.3);
     updateUI();
     save();
   }
 };
 
-// Buying Buildings - Fixed the "Doesn't work" issue
+// BUILDING LOGIC
 window.buyBuilding = function(key) {
   const bData = data.buildings[key];
   if (data.money >= bData.cost) {
@@ -219,26 +222,20 @@ window.buyBuilding = function(key) {
     bData.cost = Math.round(bData.cost * 1.2);
     updateUI();
     save();
-  } else {
-    alert("Not enough coins!");
   }
 };
 
 function renderBuildings() {
   const container = document.getElementById('buildings');
-  // We check if the number of displayed buildings matches unlocked ones
-  // to avoid clearing the HTML (and breaking clicks) every second.
-  let currentDisplayCount = container.children.length;
   let unlockedCount = buildingTypes.filter(b => data.buildings[b.key].unlocked).length;
 
-  if (currentDisplayCount !== unlockedCount) {
+  if (container.children.length !== unlockedCount) {
     container.innerHTML = '';
     buildingTypes.forEach(b => {
       const bData = data.buildings[b.key];
       if (bData.unlocked) {
         const div = document.createElement('div');
         div.className = 'building';
-        div.id = `build-${b.key}`;
         div.innerHTML = `
           <h3>${b.name}</h3>
           <p id="count-${b.key}">Owned: ${bData.count}</p>
@@ -248,7 +245,6 @@ function renderBuildings() {
       }
     });
   } else {
-    // Just update the numbers if already rendered
     buildingTypes.forEach(b => {
       const bData = data.buildings[b.key];
       if (bData.unlocked) {
@@ -265,39 +261,50 @@ function checkUnlocks() {
   });
 }
 
-// Prestige Logic
+// PRESTIGE RESET LOGIC
 document.getElementById('prestigeBtn').onclick = () => {
   if (data.money >= data.prestigeThreshold) {
-    data.prestigeMultiplier++;
-    data.prestigeCount++;
+    const gainedMult = Math.floor(data.money / data.prestigeThreshold);
+    data.prestigeMultiplier += gainedMult;
+    data.prestigeCount += gainedMult;
+
+    // Reset Progress
     data.money = 0;
     data.coinsPerClick = 1;
     data.autoCoinsPerSec = 0;
-    for (let key in data.buildings) data.buildings[key].count = 0;
+    
+    // RESET COSTS
+    data.autoUpgradeCost = 50; // Reset auto-clicker cost
+    for (let key in data.buildings) {
+      data.buildings[key].count = 0; // Reset ownership
+      data.buildings[key].cost = data.buildings[key].baseCost; // Reset building costs
+    }
+
     data.prestigeThreshold = Math.round(data.prestigeThreshold * 2.5);
     updateUI();
     save();
+    alert("Prestige Successful! Your multiplier is now x" + data.prestigeMultiplier);
   } else {
-    alert("Keep clicking! You need " + Math.round(data.prestigeThreshold - data.money) + " more.");
+    alert("You need $" + Math.round(data.prestigeThreshold - data.money) + " more to prestige!");
   }
 };
 
-// Main Game Loop
+// GAME LOOP
 setInterval(() => {
   data.money += (getTotalAutoIncome() / 10);
   updateUI();
 }, 100);
 
-setInterval(save, 10000); // Autosave every 10s
+setInterval(save, 5000);
 
 document.getElementById('resetButton').onclick = () => {
-  if (confirm("Reset EVERYTHING?")) {
-    localStorage.removeItem('daveCoinsSave');
+  if (confirm("ERASE ALL PROGRESS?")) {
+    localStorage.removeItem('daveCoinsData');
     location.reload();
   }
 };
 
-// Start Game
+// INITIAL LOAD
 updateUI();
 </script>
 </body>
