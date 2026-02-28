@@ -14,7 +14,7 @@ body {
   color: #fff;
   position: relative;
   min-height: 100vh;
-  overflow-x: hidden; /* Prevents "shaking" screen */
+  overflow-x: hidden;
 }
 /* Hub Button */
 #hubBtn {
@@ -30,9 +30,23 @@ body {
   border: 1px solid #fff;
   z-index: 1000;
 }
-h1 { font-size: 2em; margin-top: 40px; margin-bottom: 5px; }
+/* Custom In-Game Popup */
+#game-notification {
+  position: fixed;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #ff6600;
+  padding: 15px 30px;
+  border-radius: 50px;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  transition: top 0.5s ease;
+  z-index: 2000;
+}
+h1 { font-size: 2em; margin-top: 40px; }
 #highscore-display { font-size: 1em; color: #ffe066; margin-bottom: 10px; font-weight: bold; }
-
 #dave {
   width: 250px;
   cursor: pointer;
@@ -40,68 +54,36 @@ h1 { font-size: 2em; margin-top: 40px; margin-bottom: 5px; }
   border: 5px solid #fff;
   box-shadow: 0 0 20px #fff;
   transition: transform 0.1s;
-  user-select: none; /* Prevents mobile highlighting */
-  -webkit-tap-highlight-color: transparent; /* Removes mobile blue tap box */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 #dave:active { transform: scale(0.95); }
-
 #stats { margin-top: 20px; font-size: 1.1em; }
 #money-container { font-size: 2.2em; font-weight: bold; margin-bottom: 10px; }
-
-#buildings {
-  margin-top: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.building {
-  background: rgba(255,255,255,0.2);
-  border-radius: 10px;
-  padding: 15px;
-  margin: 10px;
-  flex: 1 1 200px;
-  max-width: 250px;
-}
-button {
-  background: #fff;
-  color: #ff6600;
-  border: none;
-  padding: 10px 20px;
-  margin: 10px;
-  border-radius: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 0 10px rgba(0,0,0,0.2);
-  transition: background 0.2s;
-}
+#buildings { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; }
+.building { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 15px; margin: 10px; flex: 1 1 200px; max-width: 250px; }
+button { background: #fff; color: #ff6600; border: none; padding: 10px 20px; margin: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
 button:hover { background: #ffcc00; color: #fff; }
-
-#resetButton {
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  font-size: 0.7em;
-  opacity: 0.6;
-}
+#resetButton { position: fixed; bottom: 10px; right: 10px; font-size: 0.7em; opacity: 0.6; }
 .flying-coin { pointer-events: none; z-index: 99; font-size: 1.5em; position: fixed; }
 </style>
 </head>
 <body>
 
 <a href="https://davescasino.github.io/davescasino" id="hubBtn">← Back to Hub</a>
+<div id="game-notification">Notification!</div>
 
 <h1>Dave Clicker</h1>
-<div id="highscore-display">All-Time Highscore: <span id="highscore">0</span></div>
+<div id="highscore-display">Highscore: $<span id="highscore">0</span></div>
 
 <img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
 
 <div id="stats">
   <div id="money-container">$<span id="money">0</span></div>
-  <div>Coins per Click: <span id="perClick">1</span></div>
-  <div>Auto Coins/sec: <span id="autoCoins">0</span></div>
+  <div>Per Click: <span id="perClick">1</span></div>
+  <div>Auto/sec: <span id="autoCoins">0</span></div>
   <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
-  <div>Prestige Multiplier: x<span id="prestigeMultiplier">1</span></div>
-  <div>Prestige Threshold: $<span id="prestigeThreshold">1000</span></div>
+  <div>Prestige: x<span id="prestigeMultiplier">1</span> | Threshold: $<span id="prestigeThreshold">1000</span></div>
 </div>
 
 <div id="buildings"></div>
@@ -112,19 +94,12 @@ button:hover { background: #ffcc00; color: #fff; }
   <button id="prestigeBtn">Prestige</button>
 </div>
 
-<button id="resetButton">Hard Reset Game</button>
+<button id="resetButton">Hard Reset</button>
 
 <script>
-// Load data with defaults
 let data = JSON.parse(localStorage.getItem('daveCoinsData')) || {
-  money: 0,
-  highscore: 0,
-  coinsPerClick: 1,
-  autoCoinsPerSec: 0,
-  autoUpgradeCost: 50,
-  prestigeMultiplier: 1,
-  prestigeCount: 0,
-  prestigeThreshold: 1000,
+  money: 0, highscore: 0, coinsPerClick: 1, autoCoinsPerSec: 0,
+  autoUpgradeCost: 50, prestigeMultiplier: 1, prestigeCount: 0, prestigeThreshold: 1000,
   buildings: {
     farmer: { count: 0, cost: 10, baseCost: 10, unlocked: false },
     tractor: { count: 0, cost: 100, baseCost: 100, unlocked: false },
@@ -136,25 +111,25 @@ const buildingTypes = [
   { key: 'tractor', name: 'Orange Tractor', rate: 10, unlockPrestige: 2 },
 ];
 
-function save() {
-  localStorage.setItem('daveCoinsData', JSON.stringify(data));
+function notify(msg) {
+  const popup = document.getElementById('game-notification');
+  popup.innerText = msg;
+  popup.style.top = '20px';
+  setTimeout(() => { popup.style.top = '-100px'; }, 2500);
 }
 
-function updateUI() {
-  // Highscore logic
-  if (data.money > data.highscore) data.highscore = Math.floor(data.money);
+function save() { localStorage.setItem('daveCoinsData', JSON.stringify(data)); }
 
+function updateUI() {
+  if (data.money > data.highscore) data.highscore = Math.floor(data.money);
   document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
   document.getElementById('highscore').innerText = data.highscore.toLocaleString();
   document.getElementById('perClick').innerText = (data.coinsPerClick * data.prestigeMultiplier).toFixed(1);
   document.getElementById('autoCoins').innerText = (getTotalAutoIncome()).toFixed(1);
   document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier;
   document.getElementById('prestigeThreshold').innerText = data.prestigeThreshold.toLocaleString();
-  
-  // Update Upgrade Buttons
   document.getElementById('clickUpgrade').innerText = `Better Fingers ($${Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1))})`;
   document.getElementById('autoUpgrade').innerText = `Auto-Clicker ($${data.autoUpgradeCost})`;
-  
   checkUnlocks();
   renderBuildings();
 }
@@ -168,7 +143,6 @@ function getTotalAutoIncome() {
   return (data.autoCoinsPerSec + bIncome) * data.prestigeMultiplier;
 }
 
-// CLICK LOGIC
 document.getElementById('dave').addEventListener('click', (e) => {
   data.money += (data.coinsPerClick * data.prestigeMultiplier);
   spawnCoin(e.clientX, e.clientY);
@@ -182,25 +156,16 @@ function spawnCoin(x, y) {
   coin.style.left = x + 'px';
   coin.style.top = y + 'px';
   document.body.appendChild(coin);
-
-  const destX = x + (Math.random() - 0.5) * 200;
-  const destY = y - 150;
-
   coin.animate([
     { transform: 'translate(0,0) scale(1)', opacity: 1 },
-    { transform: `translate(${destX - x}px, ${destY - y}px) scale(1.5)`, opacity: 0 }
+    { transform: `translate(${(Math.random()-0.5)*200}px, -150px) scale(1.5)`, opacity: 0 }
   ], { duration: 700, easing: 'ease-out' }).onfinish = () => coin.remove();
 }
 
-// UPGRADES
 document.getElementById('clickUpgrade').onclick = () => {
   let cost = Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1));
-  if (data.money >= cost) {
-    data.money -= cost;
-    data.coinsPerClick++;
-    updateUI();
-    save();
-  }
+  if (data.money >= cost) { data.money -= cost; data.coinsPerClick++; updateUI(); save(); }
+  else { notify("Need more Dave Coins!"); }
 };
 
 document.getElementById('autoUpgrade').onclick = () => {
@@ -208,27 +173,22 @@ document.getElementById('autoUpgrade').onclick = () => {
     data.money -= data.autoUpgradeCost;
     data.autoCoinsPerSec++;
     data.autoUpgradeCost = Math.round(data.autoUpgradeCost * 1.3);
-    updateUI();
-    save();
-  }
+    updateUI(); save();
+  } else { notify("Need more Dave Coins!"); }
 };
 
-// BUILDING LOGIC
 window.buyBuilding = function(key) {
   const bData = data.buildings[key];
   if (data.money >= bData.cost) {
-    data.money -= bData.cost;
-    bData.count++;
+    data.money -= bData.cost; bData.count++;
     bData.cost = Math.round(bData.cost * 1.2);
-    updateUI();
-    save();
-  }
+    updateUI(); save();
+  } else { notify("Too expensive!"); }
 };
 
 function renderBuildings() {
   const container = document.getElementById('buildings');
   let unlockedCount = buildingTypes.filter(b => data.buildings[b.key].unlocked).length;
-
   if (container.children.length !== unlockedCount) {
     container.innerHTML = '';
     buildingTypes.forEach(b => {
@@ -236,11 +196,7 @@ function renderBuildings() {
       if (bData.unlocked) {
         const div = document.createElement('div');
         div.className = 'building';
-        div.innerHTML = `
-          <h3>${b.name}</h3>
-          <p id="count-${b.key}">Owned: ${bData.count}</p>
-          <button onclick="buyBuilding('${b.key}')" id="price-${b.key}">Buy ($${bData.cost})</button>
-        `;
+        div.innerHTML = `<h3>${b.name}</h3><p id="count-${b.key}">Owned: ${bData.count}</p><button onclick="buyBuilding('${b.key}')" id="price-${b.key}">Buy ($${bData.cost})</button>`;
         container.appendChild(div);
       }
     });
@@ -261,50 +217,29 @@ function checkUnlocks() {
   });
 }
 
-// PRESTIGE RESET LOGIC
 document.getElementById('prestigeBtn').onclick = () => {
   if (data.money >= data.prestigeThreshold) {
     const gainedMult = Math.floor(data.money / data.prestigeThreshold);
     data.prestigeMultiplier += gainedMult;
     data.prestigeCount += gainedMult;
-
-    // Reset Progress
-    data.money = 0;
-    data.coinsPerClick = 1;
-    data.autoCoinsPerSec = 0;
-    
-    // RESET COSTS
-    data.autoUpgradeCost = 50; // Reset auto-clicker cost
+    data.money = 0; data.coinsPerClick = 1; data.autoCoinsPerSec = 0; data.autoUpgradeCost = 50;
     for (let key in data.buildings) {
-      data.buildings[key].count = 0; // Reset ownership
-      data.buildings[key].cost = data.buildings[key].baseCost; // Reset building costs
+      data.buildings[key].count = 0;
+      data.buildings[key].cost = data.buildings[key].baseCost;
     }
-
     data.prestigeThreshold = Math.round(data.prestigeThreshold * 2.5);
-    updateUI();
-    save();
-    alert("Prestige Successful! Your multiplier is now x" + data.prestigeMultiplier);
-  } else {
-    alert("You need $" + Math.round(data.prestigeThreshold - data.money) + " more to prestige!");
-  }
+    notify("Prestige Complete! Multiplier x" + data.prestigeMultiplier);
+    updateUI(); save();
+  } else { notify("Not enough coins to prestige!"); }
 };
 
-// GAME LOOP
-setInterval(() => {
-  data.money += (getTotalAutoIncome() / 10);
-  updateUI();
-}, 100);
-
+setInterval(() => { data.money += (getTotalAutoIncome() / 10); updateUI(); }, 100);
 setInterval(save, 5000);
 
 document.getElementById('resetButton').onclick = () => {
-  if (confirm("ERASE ALL PROGRESS?")) {
-    localStorage.removeItem('daveCoinsData');
-    location.reload();
-  }
+  if (confirm("Reset everything?")) { localStorage.removeItem('daveCoinsData'); location.reload(); }
 };
 
-// INITIAL LOAD
 updateUI();
 </script>
 </body>
