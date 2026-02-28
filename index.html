@@ -14,8 +14,9 @@ body {
   color: #fff;
   position: relative;
   min-height: 100vh;
-  overflow-x: hidden; 
+  overflow-x: hidden; /* Fixes the screen shaking/scrolling issue */
 }
+/* Hub Button */
 #hubBtn {
   position: absolute;
   top: 10px;
@@ -27,8 +28,9 @@ body {
   border-radius: 5px;
   font-size: 0.9em;
   border: 1px solid #fff;
+  z-index: 1000;
 }
-h1 { font-size: 2em; margin-top: 40px; margin-bottom: 5px; }
+h1 { font-size: 2em; margin-top: 40px; }
 #highscore-display { font-size: 1em; color: #ffe066; margin-bottom: 10px; font-weight: bold; }
 
 #dave {
@@ -38,19 +40,27 @@ h1 { font-size: 2em; margin-top: 40px; margin-bottom: 5px; }
   border: 5px solid #fff;
   box-shadow: 0 0 20px #fff;
   transition: transform 0.1s;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* Prevents highlighting on mobile */
+  -webkit-tap-highlight-color: transparent; /* Prevents blue box on mobile */
 }
 #dave:active { transform: scale(0.95); }
 
 #stats { margin-top: 20px; font-size: 1.1em; }
 #money { font-size: 2.2em; font-weight: bold; display: block; }
 
-#upgrades {
+#buildings {
   margin-top: 20px;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
+}
+.building {
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 10px;
+  flex: 1 1 200px;
+  max-width: 250px;
 }
 button {
   background: #fff;
@@ -63,14 +73,6 @@ button {
   cursor: pointer;
   box-shadow: 0 0 10px rgba(0,0,0,0.2);
 }
-.building {
-  background: rgba(255,255,255,0.2);
-  border-radius: 10px;
-  padding: 15px;
-  margin: 10px;
-  flex: 1 1 200px;
-  max-width: 250px;
-}
 #resetButton {
   position: fixed;
   bottom: 10px;
@@ -78,7 +80,7 @@ button {
   font-size: 0.7em;
   opacity: 0.6;
 }
-.flying-coin { pointer-events: none; z-index: 999; font-size: 1.5em; position: fixed; }
+.flying-coin { pointer-events: none; z-index: 99; font-size: 1.5em; position: fixed; }
 </style>
 </head>
 <body>
@@ -86,7 +88,7 @@ button {
 <a href="https://davescasino.github.io/davescasino" id="hubBtn">← Back to Hub</a>
 
 <h1>Dave Coins</h1>
-<div id="highscore-display">All-Time Highscore: <span id="highscore">0</span></div>
+<div id="highscore-display">Highscore: <span id="highscore">0</span></div>
 
 <img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
 
@@ -95,7 +97,7 @@ button {
   <div>Coins per Click: <span id="perClick">1</span></div>
   <div>Auto Coins/sec: <span id="autoCoins">0</span></div>
   <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
-  <div>Multiplier: x<span id="prestigeMultiplier">1</span></div>
+  <div>Prestige Multiplier: x<span id="prestigeMultiplier">1</span></div>
 </div>
 
 <div id="buildings"></div>
@@ -103,13 +105,13 @@ button {
 <div id="upgrades">
   <button id="clickUpgrade">Better Fingers ($10)</button>
   <button id="autoUpgrade">Auto-Clicker ($50)</button>
-  <button id="prestigeBtn">Prestige (Cost: <span id="prestigeThreshold">1000</span>)</button>
+  <button id="prestigeBtn">Prestige (Req: <span id="prestigeThreshold">1000</span>)</button>
 </div>
 
-<button id="resetButton">Hard Reset Game</button>
+<button id="resetButton">Reset Game</button>
 
 <script>
-// LOAD DATA OR INITIALIZE
+// Initial Data
 let data = JSON.parse(localStorage.getItem('daveCoinsSave')) || {
   money: 0,
   highscore: 0,
@@ -134,10 +136,8 @@ function save() {
 }
 
 function updateUI() {
-  // Update Highscore logic
-  if (data.money > data.highscore) {
-    data.highscore = Math.floor(data.money);
-  }
+  // Update Highscore
+  if (data.money > data.highscore) data.highscore = Math.floor(data.money);
 
   document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
   document.getElementById('highscore').innerText = data.highscore.toLocaleString();
@@ -146,27 +146,29 @@ function updateUI() {
   document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier;
   document.getElementById('prestigeThreshold').innerText = data.prestigeThreshold.toLocaleString();
   
+  // Update Upgrade Button Text
   document.getElementById('clickUpgrade').innerText = `Better Fingers ($${Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1))})`;
   document.getElementById('autoUpgrade').innerText = `Auto-Clicker ($${Math.round(50 * Math.pow(1.5, data.autoCoinsPerSec))})`;
   
-  updateBuildingsUI();
+  // Refresh Building List (Only if a new one unlocked)
+  checkUnlocks();
+  renderBuildings();
 }
 
 function getTotalAutoIncome() {
-  let buildingIncome = 0;
+  let bIncome = 0;
   for (const b of buildingTypes) {
     const bData = data.buildings[b.key];
-    if (bData.unlocked) buildingIncome += bData.count * b.rate;
+    if (bData.unlocked) bIncome += bData.count * b.rate;
   }
-  return (data.autoCoinsPerSec + buildingIncome) * data.prestigeMultiplier;
+  return (data.autoCoinsPerSec + bIncome) * data.prestigeMultiplier;
 }
 
-// CLICK LOGIC
+// Click Dave
 document.getElementById('dave').addEventListener('click', (e) => {
   data.money += (data.coinsPerClick * data.prestigeMultiplier);
   spawnCoin(e.clientX, e.clientY);
   updateUI();
-  save(); // Save on click for safety
 });
 
 function spawnCoin(x, y) {
@@ -177,16 +179,17 @@ function spawnCoin(x, y) {
   coin.style.top = y + 'px';
   document.body.appendChild(coin);
 
+  // Animate away from click
   const destX = x + (Math.random() - 0.5) * 200;
-  const destY = y - 200;
+  const destY = y - 150;
 
   coin.animate([
-    { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+    { transform: 'translate(0,0) scale(1)', opacity: 1 },
     { transform: `translate(${destX - x}px, ${destY - y}px) scale(1.5)`, opacity: 0 }
-  ], { duration: 800, easing: 'ease-out' }).onfinish = () => coin.remove();
+  ], { duration: 700, easing: 'ease-out' }).onfinish = () => coin.remove();
 }
 
-// UPGRADES
+// Upgrades
 document.getElementById('clickUpgrade').onclick = () => {
   let cost = Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1));
   if (data.money >= cost) {
@@ -207,26 +210,8 @@ document.getElementById('autoUpgrade').onclick = () => {
   }
 };
 
-document.getElementById('prestigeBtn').onclick = () => {
-  if (data.money >= data.prestigeThreshold) {
-    data.prestigeMultiplier++;
-    data.prestigeCount++;
-    data.money = 0;
-    data.coinsPerClick = 1;
-    data.autoCoinsPerSec = 0;
-    for (let key in data.buildings) {
-        data.buildings[key].count = 0;
-    }
-    data.prestigeThreshold = Math.round(data.prestigeThreshold * 3);
-    checkUnlocks();
-    updateUI();
-    save();
-  } else {
-    alert("You need " + (data.prestigeThreshold - Math.floor(data.money)) + " more coins!");
-  }
-};
-
-function buyBuilding(key) {
+// Buying Buildings - Fixed the "Doesn't work" issue
+window.buyBuilding = function(key) {
   const bData = data.buildings[key];
   if (data.money >= bData.cost) {
     data.money -= bData.cost;
@@ -234,25 +219,44 @@ function buyBuilding(key) {
     bData.cost = Math.round(bData.cost * 1.2);
     updateUI();
     save();
+  } else {
+    alert("Not enough coins!");
   }
-}
+};
 
-function updateBuildingsUI() {
+function renderBuildings() {
   const container = document.getElementById('buildings');
-  container.innerHTML = '';
-  buildingTypes.forEach(b => {
-    const bData = data.buildings[b.key];
-    if (bData.unlocked) {
-      const div = document.createElement('div');
-      div.className = 'building';
-      div.innerHTML = `
-        <h3>${b.name}</h3>
-        <p>Owned: ${bData.count}</p>
-        <button onclick="buyBuilding('${b.key}')">Buy ($${bData.cost})</button>
-      `;
-      container.appendChild(div);
-    }
-  });
+  // We check if the number of displayed buildings matches unlocked ones
+  // to avoid clearing the HTML (and breaking clicks) every second.
+  let currentDisplayCount = container.children.length;
+  let unlockedCount = buildingTypes.filter(b => data.buildings[b.key].unlocked).length;
+
+  if (currentDisplayCount !== unlockedCount) {
+    container.innerHTML = '';
+    buildingTypes.forEach(b => {
+      const bData = data.buildings[b.key];
+      if (bData.unlocked) {
+        const div = document.createElement('div');
+        div.className = 'building';
+        div.id = `build-${b.key}`;
+        div.innerHTML = `
+          <h3>${b.name}</h3>
+          <p id="count-${b.key}">Owned: ${bData.count}</p>
+          <button onclick="buyBuilding('${b.key}')" id="price-${b.key}">Buy ($${bData.cost})</button>
+        `;
+        container.appendChild(div);
+      }
+    });
+  } else {
+    // Just update the numbers if already rendered
+    buildingTypes.forEach(b => {
+      const bData = data.buildings[b.key];
+      if (bData.unlocked) {
+        document.getElementById(`count-${b.key}`).innerText = `Owned: ${bData.count}`;
+        document.getElementById(`price-${b.key}`).innerText = `Buy ($${bData.cost})`;
+      }
+    });
+  }
 }
 
 function checkUnlocks() {
@@ -261,23 +265,39 @@ function checkUnlocks() {
   });
 }
 
-// GAME LOOPS
+// Prestige Logic
+document.getElementById('prestigeBtn').onclick = () => {
+  if (data.money >= data.prestigeThreshold) {
+    data.prestigeMultiplier++;
+    data.prestigeCount++;
+    data.money = 0;
+    data.coinsPerClick = 1;
+    data.autoCoinsPerSec = 0;
+    for (let key in data.buildings) data.buildings[key].count = 0;
+    data.prestigeThreshold = Math.round(data.prestigeThreshold * 2.5);
+    updateUI();
+    save();
+  } else {
+    alert("Keep clicking! You need " + Math.round(data.prestigeThreshold - data.money) + " more.");
+  }
+};
+
+// Main Game Loop
 setInterval(() => {
   data.money += (getTotalAutoIncome() / 10);
   updateUI();
 }, 100);
 
-setInterval(save, 10000); // Autosave every 10 seconds just in case
+setInterval(save, 10000); // Autosave every 10s
 
 document.getElementById('resetButton').onclick = () => {
-  if (confirm("ERASE ALL PROGRESS AND HIGHSCORE?")) {
+  if (confirm("Reset EVERYTHING?")) {
     localStorage.removeItem('daveCoinsSave');
     location.reload();
   }
 };
 
-// INITIALIZE
-checkUnlocks();
+// Start Game
 updateUI();
 </script>
 </body>
