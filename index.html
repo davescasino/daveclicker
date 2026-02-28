@@ -44,7 +44,6 @@ body {
   text-align: right;
   border: 1px solid rgba(255,255,255,0.2);
   z-index: 1000;
-  pointer-events: none; /* Allows clicking through if it overlaps */
 }
 #timer {
   font-size: 1.3em;
@@ -72,7 +71,7 @@ body {
   z-index: 2000;
 }
 h1 { font-size: 2em; margin-top: 60px; }
-#highscore-display { font-size: 1em; color: #ffe066; margin-bottom: 10px; font-weight: bold; }
+#highscore-display { font-size: 1.2em; color: #ffe066; margin-bottom: 10px; font-weight: bold; }
 #dave {
   width: 250px;
   cursor: pointer;
@@ -93,6 +92,9 @@ button:hover { background: #ffcc00; color: #fff; }
 #resetButton { position: fixed; bottom: 10px; right: 10px; font-size: 0.7em; opacity: 0.6; }
 .flying-coin { pointer-events: none; z-index: 99; font-size: 1.5em; position: fixed; }
 
+/* Lockdown Styles */
+#end-message { display: none; font-size: 1.5em; margin-top: 20px; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 15px; }
+
 @media (max-width: 600px) {
     #countdown-box { top: 50px; right: 10px; max-width: 150px; font-size: 0.65em; }
     h1 { margin-top: 80px; }
@@ -110,30 +112,39 @@ button:hover { background: #ffcc00; color: #fff; }
 
 <div id="game-notification">Notification!</div>
 
-<h1>Dave Coins</h1>
-<div id="highscore-display">Highscore: $<span id="highscore">0</span></div>
+<h1 id="main-title">Dave Coins</h1>
+<div id="highscore-display">All-Time Highscore: $<span id="highscore">0</span></div>
+
+<div id="end-message">
+    <h2>🏆 The Event has Ended! 🏆</h2>
+    <p>Coin production is now closed. Your final highscore is recorded above.</p>
+</div>
 
 <img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
 
-<div id="stats">
-  <div id="money-container">$<span id="money">0</span></div>
-  <div>Per Click: <span id="perClick">1</span></div>
-  <div>Auto/sec: <span id="autoCoins">0</span></div>
-  <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
-  <div>Prestige: x<span id="prestigeMultiplier">1</span> | Threshold: $<span id="prestigeThreshold">1000</span></div>
-</div>
+<div id="stats-area">
+  <div id="stats">
+    <div id="money-container">$<span id="money">0</span></div>
+    <div>Per Click: <span id="perClick">1</span></div>
+    <div>Auto/sec: <span id="autoCoins">0</span></div>
+    <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
+    <div>Prestige: x<span id="prestigeMultiplier">1</span> | Threshold: $<span id="prestigeThreshold">1000</span></div>
+  </div>
 
-<div id="buildings"></div>
+  <div id="buildings"></div>
 
-<div id="upgrades">
-  <button id="clickUpgrade">Better Fingers ($10)</button>
-  <button id="autoUpgrade">Auto-Clicker ($50)</button>
-  <button id="prestigeBtn">Prestige</button>
+  <div id="upgrades">
+    <button id="clickUpgrade">Better Fingers ($10)</button>
+    <button id="autoUpgrade">Auto-Clicker ($50)</button>
+    <button id="prestigeBtn">Prestige</button>
+  </div>
 </div>
 
 <button id="resetButton">Hard Reset</button>
 
 <script>
+let isEventOver = false;
+
 let data = JSON.parse(localStorage.getItem('daveCoinsData')) || {
   money: 0, highscore: 0, coinsPerClick: 1, autoCoinsPerSec: 0,
   autoUpgradeCost: 50, prestigeMultiplier: 1, prestigeCount: 0, prestigeThreshold: 1000,
@@ -148,13 +159,29 @@ const buildingTypes = [
   { key: 'tractor', name: 'Orange Tractor', rate: 10, unlockPrestige: 2 },
 ];
 
-// COUNTDOWN LOGIC
-const targetDate = new Date("March 6, 2026 00:00:00").getTime();
+// TEST TIMER: Set to February 28, 2026 at 9:48:00 AM
+const targetDate = new Date("February 28, 2026 09:48:00").getTime();
+
+function handleEventEnd() {
+    if (isEventOver) return;
+    isEventOver = true;
+    
+    // Hide game elements
+    document.getElementById('main-title').style.display = 'none';
+    document.getElementById('dave').style.display = 'none';
+    document.getElementById('stats-area').style.display = 'none';
+    document.getElementById('resetButton').style.display = 'none';
+    
+    // Show End Message
+    document.getElementById('end-message').style.display = 'block';
+    document.getElementById('timer').innerHTML = "EVENT CLOSED";
+}
+
 function updateCountdown() {
     const now = new Date().getTime();
     const distance = targetDate - now;
-    if (distance < 0) {
-        document.getElementById("timer").innerHTML = "Event Over!";
+    if (distance <= 0) {
+        handleEventEnd();
         return;
     }
     const days = Math.floor(distance / (1000 * 60 * 60 * 24));
@@ -167,6 +194,7 @@ setInterval(updateCountdown, 1000);
 updateCountdown();
 
 function notify(msg) {
+  if (isEventOver) return;
   const popup = document.getElementById('game-notification');
   popup.innerText = msg;
   popup.style.top = '20px';
@@ -177,8 +205,11 @@ function save() { localStorage.setItem('daveCoinsData', JSON.stringify(data)); }
 
 function updateUI() {
   if (data.money > data.highscore) data.highscore = Math.floor(data.money);
-  document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
   document.getElementById('highscore').innerText = data.highscore.toLocaleString();
+  
+  if (isEventOver) return;
+
+  document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
   document.getElementById('perClick').innerText = (data.coinsPerClick * data.prestigeMultiplier).toFixed(1);
   document.getElementById('autoCoins').innerText = (getTotalAutoIncome()).toFixed(1);
   document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier;
@@ -190,6 +221,7 @@ function updateUI() {
 }
 
 function getTotalAutoIncome() {
+  if (isEventOver) return 0;
   let bIncome = 0;
   for (const b of buildingTypes) {
     const bData = data.buildings[b.key];
@@ -199,6 +231,7 @@ function getTotalAutoIncome() {
 }
 
 document.getElementById('dave').addEventListener('click', (e) => {
+  if (isEventOver) return;
   data.money += (data.coinsPerClick * data.prestigeMultiplier);
   spawnCoin(e.clientX, e.clientY);
   updateUI();
@@ -218,12 +251,14 @@ function spawnCoin(x, y) {
 }
 
 document.getElementById('clickUpgrade').onclick = () => {
+  if (isEventOver) return;
   let cost = Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1));
   if (data.money >= cost) { data.money -= cost; data.coinsPerClick++; updateUI(); save(); }
   else { notify("Need more Dave Coins!"); }
 };
 
 document.getElementById('autoUpgrade').onclick = () => {
+  if (isEventOver) return;
   if (data.money >= data.autoUpgradeCost) {
     data.money -= data.autoUpgradeCost;
     data.autoCoinsPerSec++;
@@ -233,6 +268,7 @@ document.getElementById('autoUpgrade').onclick = () => {
 };
 
 window.buyBuilding = function(key) {
+  if (isEventOver) return;
   const bData = data.buildings[key];
   if (data.money >= bData.cost) {
     data.money -= bData.cost; bData.count++;
@@ -242,6 +278,7 @@ window.buyBuilding = function(key) {
 };
 
 function renderBuildings() {
+  if (isEventOver) return;
   const container = document.getElementById('buildings');
   let unlockedCount = buildingTypes.filter(b => data.buildings[b.key].unlocked).length;
   if (container.children.length !== unlockedCount) {
@@ -259,8 +296,10 @@ function renderBuildings() {
     buildingTypes.forEach(b => {
       const bData = data.buildings[b.key];
       if (bData.unlocked) {
-        document.getElementById(`count-${b.key}`).innerText = `Owned: ${bData.count}`;
-        document.getElementById(`price-${b.key}`).innerText = `Buy ($${bData.cost})`;
+        const cElem = document.getElementById(`count-${b.key}`);
+        const pElem = document.getElementById(`price-${b.key}`);
+        if(cElem) cElem.innerText = `Owned: ${bData.count}`;
+        if(pElem) pElem.innerText = `Buy ($${bData.cost})`;
       }
     });
   }
@@ -273,6 +312,7 @@ function checkUnlocks() {
 }
 
 document.getElementById('prestigeBtn').onclick = () => {
+  if (isEventOver) return;
   if (data.money >= data.prestigeThreshold) {
     const gainedMult = Math.floor(data.money / data.prestigeThreshold);
     data.prestigeMultiplier += gainedMult;
@@ -288,7 +328,13 @@ document.getElementById('prestigeBtn').onclick = () => {
   } else { notify("Not enough coins to prestige!"); }
 };
 
-setInterval(() => { data.money += (getTotalAutoIncome() / 10); updateUI(); }, 100);
+setInterval(() => { 
+    if (!isEventOver) {
+        data.money += (getTotalAutoIncome() / 10); 
+        updateUI(); 
+    }
+}, 100);
+
 setInterval(save, 5000);
 
 document.getElementById('resetButton').onclick = () => {
