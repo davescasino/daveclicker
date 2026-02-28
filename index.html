@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Dave Clicker</title>
+<title>Dave Coins Idle Game</title>
 <style>
 body {
   background: linear-gradient(to right, #ffcc00, #ff6600);
@@ -92,8 +92,7 @@ button:hover { background: #ffcc00; color: #fff; }
 #resetButton { position: fixed; bottom: 10px; right: 10px; font-size: 0.7em; opacity: 0.6; }
 .flying-coin { pointer-events: none; z-index: 99; font-size: 1.5em; position: fixed; }
 
-/* Lockdown Class */
-.hidden-on-end { display: none !important; }
+/* Lockdown Styles */
 #end-message { display: none; font-size: 1.5em; margin-top: 20px; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 15px; }
 
 @media (max-width: 600px) {
@@ -108,38 +107,40 @@ button:hover { background: #ffcc00; color: #fff; }
 
 <div id="countdown-box">
   <div id="timer">Loading...</div>
-  <div id="countdown-desc">The person with the highest amount of Dave Coins by Friday (must show Dave proof) can have their name, picture of their choice, and/or social medias promoted on Dave Clicker</div>
+  <div id="countdown-desc">The person with the highest amount of Dave Coins by Friday (must show Dave proof) can have their picture, name and/or social medias promoted on Dave Clicker</div>
 </div>
 
 <div id="game-notification">Notification!</div>
 
-<h1 class="hidden-on-end">Dave Clicker</h1>
+<h1 id="main-title">Dave Coins</h1>
 <div id="highscore-display">All-Time Highscore: $<span id="highscore">0</span></div>
 
 <div id="end-message">
     <h2>🏆 The Event has Ended! 🏆</h2>
-    <p>Dave Coin production is now closed. Your final highscore is recorded above.</p>
+    <p>Coin production is now closed. Your final highscore is recorded above.</p>
 </div>
 
-<img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" class="hidden-on-end" />
+<img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
 
-<div id="stats" class="hidden-on-end">
-  <div id="money-container">$<span id="money">0</span></div>
-  <div>Per Click: <span id="perClick">1</span></div>
-  <div>Auto/sec: <span id="autoCoins">0</span></div>
-  <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
-  <div>Prestige: x<span id="prestigeMultiplier">1</span> | Threshold: $<span id="prestigeThreshold">1000</span></div>
+<div id="stats-area">
+  <div id="stats">
+    <div id="money-container">$<span id="money">0</span></div>
+    <div>Per Click: <span id="perClick">1</span></div>
+    <div>Auto/sec: <span id="autoCoins">0</span></div>
+    <hr style="width:30%; border: 0.5px solid rgba(255,255,255,0.3)">
+    <div>Prestige: x<span id="prestigeMultiplier">1</span> | Threshold: $<span id="prestigeThreshold">1000</span></div>
+  </div>
+
+  <div id="buildings"></div>
+
+  <div id="upgrades">
+    <button id="clickUpgrade">Better Fingers ($10)</button>
+    <button id="autoUpgrade">Auto-Clicker ($50)</button>
+    <button id="prestigeBtn">Prestige</button>
+  </div>
 </div>
 
-<div id="buildings" class="hidden-on-end"></div>
-
-<div id="upgrades" class="hidden-on-end">
-  <button id="clickUpgrade">Better Fingers ($10)</button>
-  <button id="autoUpgrade">Auto-Clicker ($50)</button>
-  <button id="prestigeBtn">Prestige</button>
-</div>
-
-<button id="resetButton" class="hidden-on-end">Hard Reset</button>
+<button id="resetButton">Hard Reset</button>
 
 <script>
 let isEventOver = false;
@@ -158,16 +159,20 @@ const buildingTypes = [
   { key: 'tractor', name: 'Orange Tractor', rate: 10, unlockPrestige: 2 },
 ];
 
-// COUNTDOWN LOGIC - Target: March 6, 2026 at 3:00 PM (15:00)
+// CORRECT TARGET: Friday, March 6th, 2026 at 3:00 PM
 const targetDate = new Date("March 6, 2026 15:00:00").getTime();
 
 function handleEventEnd() {
+    if (isEventOver) return;
     isEventOver = true;
-    document.querySelectorAll('.hidden-on-end').forEach(el => el.classList.add('hidden-on-end'));
-    // Specifically trigger CSS display none via the class
-    const hideList = document.getElementsByClassName('hidden-on-end');
-    for (let el of hideList) { el.style.display = 'none'; }
     
+    // Hide game elements
+    document.getElementById('main-title').style.display = 'none';
+    document.getElementById('dave').style.display = 'none';
+    document.getElementById('stats-area').style.display = 'none';
+    document.getElementById('resetButton').style.display = 'none';
+    
+    // Show End Message
     document.getElementById('end-message').style.display = 'block';
     document.getElementById('timer').innerHTML = "EVENT CLOSED";
 }
@@ -175,10 +180,20 @@ function handleEventEnd() {
 function updateCountdown() {
     const now = new Date().getTime();
     const distance = targetDate - now;
+    
     if (distance <= 0) {
         handleEventEnd();
         return;
+    } else {
+        // Ensure game is visible if we aren't past the date yet
+        isEventOver = false;
+        document.getElementById('main-title').style.display = 'block';
+        document.getElementById('dave').style.display = 'inline-block';
+        document.getElementById('stats-area').style.display = 'block';
+        document.getElementById('resetButton').style.display = 'block';
+        document.getElementById('end-message').style.display = 'none';
     }
+    
     const days = Math.floor(distance / (1000 * 60 * 60 * 24));
     const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
@@ -200,7 +215,6 @@ function save() { localStorage.setItem('daveCoinsData', JSON.stringify(data)); }
 
 function updateUI() {
   if (data.money > data.highscore) data.highscore = Math.floor(data.money);
-  
   document.getElementById('highscore').innerText = data.highscore.toLocaleString();
   
   if (isEventOver) return;
