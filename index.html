@@ -284,7 +284,7 @@ window.buyBuilding = function(key) {
     bData.cost = Math.round(bData.cost * 1.2);
     if (key === 'garr') garrExplosion();
     updateUI(); save();
-  } else { notify("Too expensive!"); }
+  } else { notify("You Don't Get Paid Enough to Afford That!"); }
 };
 
 function renderBuildings() {
@@ -322,7 +322,7 @@ document.getElementById('clickUpgrade').onclick = () => {
   if (isEventOver) return;
   let cost = Math.round(10 * Math.pow(1.5, data.coinsPerClick - 1));
   if (data.money >= cost) { data.money -= cost; data.coinsPerClick++; updateUI(); save(); }
-  else { notify("Need more Dave Coins!"); }
+  else { notify("Oops! Try Again When You're Not Broke!"); }
 };
 
 document.getElementById('autoUpgrade').onclick = () => {
@@ -332,7 +332,7 @@ document.getElementById('autoUpgrade').onclick = () => {
     data.autoCoinsPerSec++;
     data.autoUpgradeCost = Math.round(data.autoUpgradeCost * 1.3);
     updateUI(); save();
-  } else { notify("Need more Dave Coins!"); }
+  } else { notify("Sorry Brokey! You Need More Dave Coins!"); }
 };
 
 document.getElementById('prestigeBtn').onclick = () => {
@@ -349,7 +349,7 @@ document.getElementById('prestigeBtn').onclick = () => {
     data.prestigeThreshold = Math.round(data.prestigeThreshold * 2.5);
     notify("Prestige Complete! Multiplier x" + data.prestigeMultiplier);
     updateUI(); save();
-  } else { notify("Not enough coins to prestige!"); }
+  } else { notify("Yeah Right, You're Too Broke to Prestige. Try Again When You Ain't A Broke Boy"); }
 };
 
 setInterval(() => { if (!isEventOver) { data.money += (getTotalAutoIncome() / 10); updateUI(); } }, 100);
