@@ -146,12 +146,13 @@ button:hover { background: #ffcc00; color: #fff; }
 let isEventOver = false;
 
 // --- CONFIGURATION ---
+// Prestige requirements increased for Alpacas, Llamas, and Garr
 const buildingTypes = [
   { key: 'farmer', name: 'Amish Farmer', rate: 1, baseCost: 10, unlockPrestige: 1 },
-  { key: 'tractor', name: 'Orange Tractor', rate: 10, baseCost: 100, unlockPrestige: 2 },
-  { key: 'alpaca', name: "Dave's Alpaca", rate: 50, baseCost: 1000, unlockPrestige: 3 },
-  { key: 'llama', name: "Dave's Llama", rate: 250, baseCost: 5000, unlockPrestige: 4 },
-  { key: 'garr', name: 'GARR', rate: 1337, baseCost: 25000, unlockPrestige: 5 },
+  { key: 'tractor', name: 'Orange Tractor', rate: 10, baseCost: 100, unlockPrestige: 3 },
+  { key: 'alpaca', name: "Dave's Alpaca", rate: 50, baseCost: 1000, unlockPrestige: 7 },
+  { key: 'llama', name: "Dave's Llama", rate: 250, baseCost: 5000, unlockPrestige: 15 },
+  { key: 'garr', name: 'GARR', rate: 1337, baseCost: 25000, unlockPrestige: 30 },
 ];
 
 // --- DATA INITIALIZATION ---
@@ -161,7 +162,7 @@ let data = JSON.parse(localStorage.getItem('daveCoinsData')) || {
   buildings: {}
 };
 
-// Ensure all building data exists (for new upgrades)
+// Ensure all building data exists
 buildingTypes.forEach(b => {
   if (!data.buildings[b.key]) {
     data.buildings[b.key] = { count: 0, cost: b.baseCost, baseCost: b.baseCost, unlocked: false };
@@ -234,7 +235,7 @@ function getTotalAutoIncome() {
 function garrExplosion() {
   for (let i = 0; i < 25; i++) {
     const img = document.createElement('img');
-    img.src = 'https://i.imgur.com/Cbz45QM.png'; 
+    img.src = 'https://i.imgur.com/Cbz45QM.png';
     img.style.position = 'fixed';
     img.style.width = Math.random() * 100 + 50 + 'px';
     img.style.zIndex = '3000';
@@ -278,7 +279,7 @@ window.buyBuilding = function(key) {
   if (isEventOver) return;
   const bData = data.buildings[key];
   if (data.money >= bData.cost) {
-    data.money -= bData.cost; 
+    data.money -= bData.cost;
     bData.count++;
     bData.cost = Math.round(bData.cost * 1.2);
     if (key === 'garr') garrExplosion();
