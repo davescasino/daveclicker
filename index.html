@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Dave Coins Idle Game</title>
+<style>
+body {
+  background: linear-gradient(to right, #ffcc00, #ff6600);
+  font-family: 'Arial', sans-serif;
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+  color: #fff;
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden; /* Prevents shaking from flying coins */
+}
+/* Hub Button */
+#hubBtn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0,0,0,0.3);
+  color: white;
+  text-decoration: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  border: 1px solid #fff;
+}
+h1 {
+  font-size: 2em;
+  margin-top: 40px;
+}
+#dave {
+  width: 250px;
+  cursor: pointer;
+  border-radius: 20px;
+  border: 5px solid #fff;
+  box-shadow: 0 0 20px #fff;
+  transition: transform 0.1s;
+  margin-top: 10px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#dave:active {
+  transform: scale(0.95);
+}
+#stats {
+  margin-top: 20px;
+  font-size: 1.1em;
+}
+#money {
+  font-size: 2.2em;
+  font-weight: bold;
+  display: block;
+}
+#upgrades {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button {
+  background: #fff;
+  color: #ff6600;
+  border: none;
+  padding: 10px 20px;
+  margin: 10px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  font-size: 1em;
+}
+button:hover {
+  background: #ffcc00;
+  color: #fff;
+}
+.building {
+  background: rgba(255,255,255,0.2);
+  border-radius: 10px;
+  padding: 15px;
+  margin: 10px;
+  flex: 1 1 200px;
+  max-width: 250px;
+}
+#resetButton {
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+.flying-coin {
+  pointer-events: none;
+  z-index: 999;
+}
+</style>
+</head>
+<body>
+
+<a href="https://davescasino.github.io/davescasino" id="hubBtn">← Back to Hub</a>
+
+<h1>Dave Coins - Idle Clicker</h1>
+<img src="https://i.imgur.com/1UfrW92.png" id="dave" alt="Dave" />
+
+<div id="stats">
+  <div id="money">0</div>
+  <div>Coins per Click: <span id="perClick">1</span></div>
+  <div>Auto Coins/sec: <span id="autoCoins">0</span></div>
+  <hr style="width:50%; border: 0.5px solid rgba(255,255,255,0.3)">
+  <div>Multiplier: x<span id="prestigeMultiplier">1</span></div>
+  <div>Next Prestige at: <span id="prestigeThreshold">1000</span></div>
+</div>
+
+<div id="buildings"></div>
+
+<div id="upgrades">
+  <button id="clickUpgrade">Better Fingers ($10)</button>
+  <button id="autoUpgrade">Auto-Clicker ($50)</button>
+  <button id="prestigeBtn">Prestige</button>
+</div>
+
+<button id="resetButton">Reset Save</button>
+
+<script>
+let data = JSON.parse(localStorage.getItem('daveCoinsData')) || {
+  money: 0,
+  coinsPerClick: 1,
+  autoCoinsPerSec: 0,
+  prestigeMultiplier: 1,
+  prestigeCount: 0,
+  prestigeThreshold: 1000,
+  buildings: {
+    farmer: { count: 0, cost: 10, unlocked: false },
+    tractor: { count: 0, cost: 100, unlocked: false },
+  }
+};
+
+const buildingTypes = [
+  { key: 'farmer', name: 'Amish Farmer', rate: 1, unlockPrestige: 1 },
+  { key: 'tractor', name: 'Orange Tractor', rate: 10, unlockPrestige: 2 },
+];
+
+function save() {
+  localStorage.setItem('daveCoinsData', JSON.stringify(data));
+}
+
+function updateUI() {
+  document.getElementById('money').innerText = Math.floor(data.money).toLocaleString();
+  document.getElementById('perClick').innerText = data.coinsPerClick;
+  document.getElementById('autoCoins').innerText = (getTotalAutoIncome()).toFixed(1);
+  document.getElementById('prestigeMultiplier').innerText = data.prestigeMultiplier;
+  document.getElementById('prestigeThreshold').innerText = data.prestigeThreshold;
+  
+  document.getElementById('clickUpgrade').innerText = `Increase Click (+1) ($${Math.round(10 * data.coinsPerClick)})`;
+  document.getElementById('autoUpgrade').innerText = `Add Auto Coin (+1/s) ($${Math.round(50 * (data.autoCoinsPerSec + 1))})`;
+  
+  updateBuildingsUI();
+}
+
+function getTotalAutoIncome() {
+  let buildingIncome = 0;
+  for (const b of buildingTypes) {
+    const bData = data.buildings[b.key];
+    if (bData.unlocked) buildingIncome += bData.count * b.rate;
+  }
+  // This combines the "Auto Upgrade" button AND the buildings
+  return (data.autoCoinsPerSec + buildingIncome) * data.prestigeMultiplier;
+}
+
+// Click Action
+document.getElementById('dave').addEventListener('click', (e) => {
+  data.money += (data.coinsPerClick * data.prestigeMultiplier);
+  spawnCoin(e.clientX, e.clientY);
+  updateUI();
+});
+
+function spawnCoin(x, y) {
+  const coin = document.createElement('div');
+  coin.className = 'flying-coin';
+  coin.innerText = '🪙';
+  coin.style.position = 'fixed';
+  coin.style.left = x + 'px';
+  coin.style.top = y + 'px';
+  document.body.appendChild(coin);
+
+  const destX = x + (Math.random() - 0.5) * 200;
+  const destY = y - 200;
+
+  coin.animate([
+    { transform: 'translate(0, 0) rotate(0deg)', opacity: 1 },
+    { transform: `translate(${destX - x}px, ${destY - y}px) rotate(360deg)`, opacity: 0 }
+  ], {
+    duration: 800,
+    easing: 'ease-out'
+  }).onfinish = () => coin.remove();
+}
+
+// Upgrade Buttons
+document.getElementById('clickUpgrade').onclick = () => {
+  let cost = Math.round(10 * data.coinsPerClick);
+  if (data.money >= cost) {
+    data.money -= cost;
+    data.coinsPerClick++;
+    updateUI();
+  }
+};
+
+document.getElementById('autoUpgrade').onclick = () => {
+  let cost = Math.round(50 * (data.autoCoinsPerSec + 1));
+  if (data.money >= cost) {
+    data.money -= cost;
+    data.autoCoinsPerSec++;
+    updateUI();
+  }
+};
+
+document.getElementById('prestigeBtn').onclick = () => {
+  if (data.money >= data.prestigeThreshold) {
+    data.prestigeMultiplier++;
+    data.prestigeCount++;
+    data.money = 0;
+    data.coinsPerClick = 1;
+    data.autoCoinsPerSec = 0;
+    for (let key in data.buildings) data.buildings[key].count = 0;
+    data.prestigeThreshold = Math.round(data.prestigeThreshold * 2.5);
+    checkUnlocks();
+    updateUI();
+  } else {
+    alert("Not enough coins to prestige yet!");
+  }
+};
+
+function buyBuilding(key) {
+  const bData = data.buildings[key];
+  if (data.money >= bData.cost) {
+    data.money -= bData.cost;
+    bData.count++;
+    bData.cost = Math.round(bData.cost * 1.15);
+    updateUI();
+  }
+}
+
+function updateBuildingsUI() {
+  const container = document.getElementById('buildings');
+  container.innerHTML = '';
+  buildingTypes.forEach(b => {
+    const bData = data.buildings[b.key];
+    if (bData.unlocked) {
+      const div = document.createElement('div');
+      div.className = 'building';
+      div.innerHTML = `
+        <h3>${b.name}</h3>
+        <p>Owned: ${bData.count}</p>
+        <button onclick="buyBuilding('${b.key}')">Buy ($${bData.cost})</button>
+      `;
+      container.appendChild(div);
+    }
+  });
+}
+
+function checkUnlocks() {
+  buildingTypes.forEach(b => {
+    if (data.prestigeCount >= b.unlockPrestige) data.buildings[b.key].unlocked = true;
+  });
+}
+
+// Game Loop (Auto-income)
+setInterval(() => {
+  data.money += (getTotalAutoIncome() / 10);
+  updateUI();
+}, 100);
+
+// Autosave
+setInterval(save, 5000);
+
+document.getElementById('resetButton').onclick = () => {
+  if (confirm("Reset everything?")) {
+    localStorage.removeItem('daveCoinsData');
+    location.reload();
+  }
+};
+
+// Start
+checkUnlocks();
+updateUI();
+</script>
+</body>
+</html>
